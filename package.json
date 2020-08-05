@@ -1,0 +1,32 @@
+{
+  "name": "OuroJS",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "scripts": {
+    "watch": "webpack --watch",
+    "start": "webpack-dev-server --open",
+    "build": "webpack"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://karfidoff@github.com/karfidoff/OuroJS.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/karfidoff/OuroJS/issues"
+  },
+  "homepage": "https://github.com/karfidoff/OuroJS#readme",
+  "devDependencies": {
+    "clean-webpack-plugin": "^3.0.0",
+    "html-webpack-plugin": "^4.3.0",
+    "source-map-loader": "^1.0.1",
+    "ts-loader": "^8.0.2",
+    "typescript": "^3.9.7",
+    "webpack": "^5.0.0-beta.23",
+    "webpack-cli": "^3.3.12",
+    "webpack-dev-server": "^3.11.0"
+  }
+}

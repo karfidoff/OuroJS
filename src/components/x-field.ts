@@ -1,4 +1,4 @@
-export default class Xfield extends HTMLElement {
+export class XField extends HTMLElement {
 
   constructor() {
     super();

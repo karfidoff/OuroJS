@@ -1,6 +1,6 @@
-import Xfield from "./x-field.js";
+import {XField} from "./x-field";
 
-class XTextfield extends Xfield {
+export class XTextfield extends XField {
 
   constructor() {
     super();
@@ -17,4 +17,3 @@ class XTextfield extends Xfield {
 
 }
 
-customElements.define('x-textfield', XTextfield);
