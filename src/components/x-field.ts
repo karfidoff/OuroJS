@@ -16,5 +16,9 @@ export class XField extends HTMLElement {
     }
   }
 
+  public interpolate(template) {
+    return new Function( `return \`${template}\`;`).apply(this);
+  }
+
 }
 

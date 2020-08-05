@@ -8,7 +8,7 @@ export class XTextfield extends XField {
   }
 
   async connectedCallback() {
-    this.attachShadow({mode: 'open'}).innerHTML = String(template);
+    this.attachShadow({mode: 'open'}).innerHTML = this.interpolate(String(template));
   }
 
 
