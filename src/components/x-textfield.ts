@@ -1,4 +1,5 @@
 import {XField} from "./x-field";
+import template from './x-textfield.html';
 
 export class XTextfield extends XField {
 
@@ -7,11 +8,7 @@ export class XTextfield extends XField {
   }
 
   async connectedCallback() {
-    fetch("js/x-textfield.html")
-            .then(stream => stream.text())
-            .then(text => {
-              this.attachShadow({mode: 'open'}).innerHTML = text;
-            });
+    this.attachShadow({mode: 'open'}).innerHTML = String(template);
   }
 
 

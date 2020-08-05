@@ -35,9 +35,13 @@ module.exports = {
         use: ['source-map-loader'],
       },
       {test: /\.ts$/i, use: ['ts-loader'], exclude: /node_modules/},
+      {
+        test: /\.html$/i,
+        loader: 'html-loader',
+      },
     ],
   },
   resolve: {
-     extensions: [ '.tsx', '.ts', '.js' ],
-   },
+    extensions: ['.tsx', '.ts', '.js'],
+  },
 };
