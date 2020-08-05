@@ -16,6 +16,18 @@ export class XField extends HTMLElement {
     }
   }
 
+  get name() {
+    return this.getAttribute('name');
+  }
+
+  set name(val) {
+    if (val) {
+      this.setAttribute('name', val);
+    } else {
+      this.removeAttribute('name');
+    }
+  }
+
   public interpolate(template) {
     return new Function( `return \`${template}\`;`).apply(this);
   }
