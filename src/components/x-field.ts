@@ -1,35 +1,23 @@
+import {AttributeProperty} from "../core/core";
+
+
 export class XField extends HTMLElement {
+
+  @AttributeProperty
+  label:string;
+  @AttributeProperty
+  name:string;
 
   constructor() {
     super();
   }
 
-  get label() {
-    return this.getAttribute('label');
-  }
-
-  set label(val) {
-    if (val) {
-      this.setAttribute('label', val);
-    } else {
-      this.removeAttribute('label');
-    }
-  }
-
-  get name() {
-    return this.getAttribute('name');
-  }
-
-  set name(val) {
-    if (val) {
-      this.setAttribute('name', val);
-    } else {
-      this.removeAttribute('name');
-    }
-  }
-
   public interpolate(template) {
     return new Function( `return \`${template}\`;`).apply(this);
+  }
+
+  labelChanged(newValue, oldValue) {
+    console.log('label changed to ' + newValue);
   }
 
 }
