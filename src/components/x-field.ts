@@ -1,6 +1,5 @@
 import {AttributeProperty} from "../core/core";
 
-
 export class XField {
 
   @AttributeProperty
