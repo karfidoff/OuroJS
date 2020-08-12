@@ -4,12 +4,16 @@ import {kebabCase} from "./kebab-case";
 export function AttributeProperty(target: {} | any, name?: PropertyKey) {
   const descriptor = {
     get(this: any) {
-      console.log("get " + String(name));
+      if (!this.$element) {
+        return undefined;
+      }
       return this.$element.getAttribute(name);
     },
     set(value: any) {
-      console.log('set ' + String(name));
-      console.log(this);
+      if (!this.$element) {
+        console.log(this);
+        return;
+      }
       let oldValue = this.$element.getAttribute(name);
       if (value) {
         this.$element.setAttribute(name, value);
@@ -30,7 +34,38 @@ export function AttributeProperty(target: {} | any, name?: PropertyKey) {
 
 export function inlineView(template: string) {
   return function (constructor: Function) {
-    constructor.prototype.template = template;
+    constructor.prototype.$template = template;
+  }
+}
+
+function BaseClass<T>(): new() => Pick<T, keyof T> { // we use a pick to remove the abstract modifier
+  return class {
+  } as any
+}
+
+class ClassProxy extends BaseClass<any>() {
+
+  constructor(target: any) {
+    super();
+    let handler = {
+      get: function (target: ClassProxy, p: PropertyKey, receiver: any): any {
+        //console.log('get ' + String(p) + "=" + Reflect.get(target, p, receiver));
+        return Reflect.get(target, p, receiver);
+      },
+      set: function (target: ClassProxy, p: keyof any, value: any, receiver: any): boolean {
+        console.log('set ' + String(p) + "=" + value);
+        //toView
+        if (target.$observables) {
+          for (let o of target.$observables) {
+            if (o.property === String(p)) {
+              o.node[o.attributeName] = value;
+            }
+          }
+        }
+        return Reflect.set(target, p, value, receiver);
+      }
+    }
+    return new Proxy(target, handler);
   }
 }
 
@@ -41,27 +76,44 @@ export function registerElement(className: any) {
 
         constructor() {
           super();
-          this['viewModel'] = new className();
-          this['viewModel'].$element = this;
+          this.viewModel = new className();
+          //viewModel["$element"] = this;
+          this['viewModel'] = new ClassProxy(this.viewModel);
+          this['viewModel']["$element"] = this;
+          //bind initial values
+          for (let attr of this.attributes) {
+            this.viewModel[attr.name] = attr.value; //TODO check if property exists
+          }
         }
 
         async connectedCallback() {
-          console.log(this['viewModel']);
-          this.attachShadow({mode: 'open'}).innerHTML = interpolate.call(this['viewModel'], String(this['viewModel'].template));
+          this.attachShadow({mode: 'open'}).innerHTML = interpolate.call(this.viewModel, String(this.viewModel.$template));
           //TODO should be recursive
           for (let child of this.shadowRoot.children) {
             for (let attr of child.attributes) {
-              if (attr.name.endsWith(".fromview")) {
+              //from view to viewmodel
+              if (attr.name.endsWith(".fromview") || attr.name.endsWith(".twoway")) {
                 child.addEventListener("change", (event) => {
-                  let viewModel = this['viewModel'];
-                  let value = event.target[attr.name.substring(0, attr.name.indexOf(".fromview"))];
-                  let oldValue = viewModel[attr.value];
-                  viewModel[attr.value] = value;
-                  let changedFunction = viewModel[`${String(attr.value)}Changed`];
-                  if (viewModel[`${String(attr.value)}Changed`] instanceof Function) {
-                    changedFunction.call(viewModel, value, oldValue);
+                  let value = event.target[attr.name.substring(0, attr.name.endsWith(".fromview") ? attr.name.indexOf(".fromview") : attr.name.indexOf(".twoway"))];
+                  let oldValue = this.viewModel[attr.value];
+                  this.viewModel[attr.value] = value;
+                  let changedFunction = this.viewModel[`${String(attr.value)}Changed`];
+                  if (this.viewModel[`${String(attr.value)}Changed`] instanceof Function) {
+                    changedFunction.call(this.viewModel, value, oldValue);
                   }
-                })
+                });
+              }
+              //from viewmodel to view
+              if (attr.name.endsWith(".toview") || attr.name.endsWith(".twoway")) {
+                //observe viewModel[attr.value] and on changes set attr to that value
+                if (!this.viewModel.$observables) {
+                  this.viewModel.$observables = [];
+                }
+                this.viewModel.$observables.push({
+                  property: attr.value,
+                  node: child,
+                  attributeName: attr.name.substring(0, attr.name.endsWith(".toview") ? attr.name.indexOf(".toview") : attr.name.indexOf(".twoway"))
+                });
               }
             }
           }

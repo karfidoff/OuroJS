@@ -1,10 +1,6 @@
-import {AttributeProperty} from "../core/core";
-
 export class XField {
 
-  @AttributeProperty
   label:string;
-  @AttributeProperty
   name:string;
 
   value:any;
