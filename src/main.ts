@@ -1,8 +1,8 @@
-
 //todo register all components from index.ts
 import * as globalComponents from './components';
 
 import {XTextfield} from "./components";
+import {registerElement} from "./core/core";
 
-customElements.define('x-textfield', XTextfield);
+registerElement(XTextfield);
 
