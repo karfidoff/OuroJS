@@ -48,6 +48,23 @@ export function registerElement(className: any) {
         async connectedCallback() {
           console.log(this['viewModel']);
           this.attachShadow({mode: 'open'}).innerHTML = interpolate.call(this['viewModel'], String(this['viewModel'].template));
+          //TODO should be recursive
+          for (let child of this.shadowRoot.children) {
+            for (let attr of child.attributes) {
+              if (attr.name.endsWith(".fromview")) {
+                child.addEventListener("change", (event) => {
+                  let viewModel = this['viewModel'];
+                  let value = event.target[attr.name.substring(0, attr.name.indexOf(".fromview"))];
+                  let oldValue = viewModel[attr.value];
+                  viewModel[attr.value] = value;
+                  let changedFunction = viewModel[`${String(attr.value)}Changed`];
+                  if (viewModel[`${String(attr.value)}Changed`] instanceof Function) {
+                    changedFunction.call(viewModel, value, oldValue);
+                  }
+                })
+              }
+            }
+          }
         }
       }
   );
@@ -55,7 +72,7 @@ export function registerElement(className: any) {
 
 //dirty trick
 function interpolate(template) {
-  return new Function( `return \`${template}\`;`).apply(this);
+  return new Function(`return \`${template}\`;`).apply(this);
 }
 
 export function kebabToCamel(value: string): string {

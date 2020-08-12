@@ -34,7 +34,6 @@ module.exports = {
         enforce: 'pre',
         use: ['source-map-loader'],
       },
-      {test: /\.ts$/i, use: ['ts-loader'], exclude: /node_modules/},
       {
         test: /\.html$/i,
         loader: 'html-loader',
