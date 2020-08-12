@@ -9,7 +9,9 @@
     "target": "ES2017",
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "jsx": "react",
+    "reactNamespace": "JSX"
   },
   "include": [
     "src"
