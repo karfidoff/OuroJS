@@ -32,40 +32,96 @@ export function AttributeProperty(target: {} | any, name?: PropertyKey) {
   Reflect.defineMetadata(name, descriptor, target);
 }
 
-export function inlineView(template: string) {
-  return function (constructor: Function) {
-    constructor.prototype.$template = template;
+class Observable {
+  currentValue: any;
+  oldValue: any;
+  obj: any;
+  propertyKey: string;
+  changedFunction: Function;
+  subscribers:Array<Subscriber>;
+
+  constructor(obj, propertyKey) {
+    this.obj = obj;
+    this.propertyKey = propertyKey;
+    if (!this.obj.$observables) {
+      this.obj.$observables = {};
+    }
+    this.obj.$observables[propertyKey] = this;
+    this.changedFunction = this.obj[`${propertyKey}Changed`];
+  }
+
+  getValue(): any {
+    console.log(`observable ${this.propertyKey} get ${this.currentValue}`);
+    return this.currentValue;
+  }
+
+  setValue(newValue: any): void {
+    console.log(`observable set ${this.propertyKey} to ${newValue}`);
+    this.oldValue = this.currentValue;
+    this.currentValue = newValue;
+    //call subscribers
+    if (this.subscribers) {
+      for (let s of this.subscribers) {
+        s.handleChange(this.currentValue, this.oldValue);
+      }
+    }
+    //call ...Changed hook
+    if (this.changedFunction) {
+      this.changedFunction.call(this.obj, this.currentValue, this.oldValue);
+    }
+  }
+
+  subscribe(subscriber:Subscriber) {
+    if (!this.subscribers) {
+      this.subscribers = new Array<Subscriber>();
+    }
+    this.subscribers.push(subscriber);
   }
 }
 
-function BaseClass<T>(): new() => Pick<T, keyof T> { // we use a pick to remove the abstract modifier
-  return class {
-  } as any
+export function bindable(target: any, name?: PropertyKey):any {
+  console.log(target);
+  let observable = new Observable(target, name);
+
+  const descriptor = {
+    get: observable.getValue.bind(observable),
+    set: observable.setValue.bind(observable),
+    enumerable: true,
+    configurable: true,
+  };
+  Object.defineProperty(target, name, descriptor);
+  Reflect.defineMetadata(name, descriptor, target);
+  return observable;
 }
 
-class ClassProxy extends BaseClass<any>() {
+interface Subscriber {
+  target: any;
+  targetProperty: string;
 
-  constructor(target: any) {
-    super();
-    let handler = {
-      get: function (target: ClassProxy, p: PropertyKey, receiver: any): any {
-        //console.log('get ' + String(p) + "=" + Reflect.get(target, p, receiver));
-        return Reflect.get(target, p, receiver);
-      },
-      set: function (target: ClassProxy, p: keyof any, value: any, receiver: any): boolean {
-        console.log('set ' + String(p) + "=" + value);
-        //toView
-        if (target.$observables) {
-          for (let o of target.$observables) {
-            if (o.property === String(p)) {
-              o.node[o.attributeName] = value;
-            }
-          }
-        }
-        return Reflect.set(target, p, value, receiver);
-      }
+  handleChange(newValue, oldValue);
+}
+
+class PropertySubscriber implements Subscriber {
+  target: any;
+  targetProperty: string;
+
+  constructor(target: any, targetProperty: string) {
+    this.target = target;
+    this.targetProperty = targetProperty;
+  }
+
+  handleChange(newValue: any, oldValue: any) {
+    if (this.targetProperty === "innerhtml") {
+      this.target["innerHTML"] = newValue;
+      return;
     }
-    return new Proxy(target, handler);
+    this.target[this.targetProperty] = newValue;
+  }
+}
+
+export function inlineView(template: string) {
+  return function (constructor: Function) {
+    constructor.prototype.$template = template;
   }
 }
 
@@ -77,9 +133,7 @@ export function registerElement(className: any) {
         constructor() {
           super();
           this.viewModel = new className();
-          //viewModel["$element"] = this;
-          this['viewModel'] = new ClassProxy(this.viewModel);
-          this['viewModel']["$element"] = this;
+          this.viewModel["$element"] = this;
           //bind initial values
           for (let attr of this.attributes) {
             this.viewModel[attr.name] = attr.value; //TODO check if property exists
@@ -105,15 +159,13 @@ export function registerElement(className: any) {
               }
               //from viewmodel to view
               if (attr.name.endsWith(".toview") || attr.name.endsWith(".twoway")) {
-                //observe viewModel[attr.value] and on changes set attr to that value
-                if (!this.viewModel.$observables) {
-                  this.viewModel.$observables = [];
+                let observer:Observable = this.viewModel.$observables && this.viewModel.$observables[attr.value];
+                if (!observer) { //add bindable if it's not defined
+                  observer = bindable(this.viewModel, attr.value);
                 }
-                this.viewModel.$observables.push({
-                  property: attr.value,
-                  node: child,
-                  attributeName: attr.name.substring(0, attr.name.endsWith(".toview") ? attr.name.indexOf(".toview") : attr.name.indexOf(".twoway"))
-                });
+                //subscribe
+                let propertyName = attr.name.substring(0, attr.name.endsWith(".toview") ? attr.name.indexOf(".toview") : attr.name.indexOf(".twoway"));
+                observer.subscribe(new PropertySubscriber(child, propertyName));
               }
             }
           }
