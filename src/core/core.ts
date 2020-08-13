@@ -90,12 +90,6 @@ class PropertySubscriber implements Subscriber {
   }
 
   handleChange(newValue: any, oldValue: any, history:Array<any>) {
-    if (!history) {
-      history = [];
-    } else if (history.indexOf(this) >= 0) {
-      return;
-    }
-    history.push(this);
     if (this.targetProperty === "innerhtml") {
       this.target["innerHTML"] = newValue; //innerHTML is case-sensitive property
       return;
