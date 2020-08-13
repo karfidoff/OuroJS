@@ -1,44 +1,13 @@
 import "reflect-metadata";
 import {kebabCase} from "./kebab-case";
 
-export function AttributeProperty(target: {} | any, name?: PropertyKey) {
-  const descriptor = {
-    get(this: any) {
-      if (!this.$element) {
-        return undefined;
-      }
-      return this.$element.getAttribute(name);
-    },
-    set(value: any) {
-      if (!this.$element) {
-        console.log(this);
-        return;
-      }
-      let oldValue = this.$element.getAttribute(name);
-      if (value) {
-        this.$element.setAttribute(name, value);
-      } else {
-        this.$element.removeAttribute(name);
-      }
-      let changedFunction = this[`${String(name)}Changed`];
-      if (this[`${String(name)}Changed`] instanceof Function) {
-        changedFunction.call(this, value, oldValue);
-      }
-    },
-    enumerable: true,
-    configurable: true,
-  };
-  Object.defineProperty(target, name, descriptor);
-  Reflect.defineMetadata(name, descriptor, target);
-}
-
 class Observable {
   currentValue: any;
   oldValue: any;
   obj: any;
   propertyKey: string;
   changedFunction: Function;
-  subscribers:Array<Subscriber>;
+  subscribers: Array<Subscriber>;
 
   constructor(obj, propertyKey) {
     this.obj = obj;
@@ -51,18 +20,24 @@ class Observable {
   }
 
   getValue(): any {
-    console.log(`observable ${this.propertyKey} get ${this.currentValue}`);
+    //console.log(`observable ${this.propertyKey} get ${this.currentValue}`);
     return this.currentValue;
   }
 
-  setValue(newValue: any): void {
-    console.log(`observable set ${this.propertyKey} to ${newValue}`);
+  setValue(newValue: any, history: Array<any> = null): void {
+    if (!history) {
+      history = [];
+    } else if (history.indexOf(this) >= 0) {
+      return;
+    }
+    history.push(this);
+    //console.log(`observable set ${this.propertyKey} to ${newValue}`);
     this.oldValue = this.currentValue;
     this.currentValue = newValue;
     //call subscribers
     if (this.subscribers) {
       for (let s of this.subscribers) {
-        s.handleChange(this.currentValue, this.oldValue);
+        s.handleChange(this.currentValue, this.oldValue, history);
       }
     }
     //call ...Changed hook
@@ -71,7 +46,7 @@ class Observable {
     }
   }
 
-  subscribe(subscriber:Subscriber) {
+  subscribe(subscriber: Subscriber) {
     if (!this.subscribers) {
       this.subscribers = new Array<Subscriber>();
     }
@@ -79,8 +54,9 @@ class Observable {
   }
 }
 
-export function bindable(target: any, name?: PropertyKey):any {
-  console.log(target);
+//TODO @bindable as decorator gives target not as component class
+export function bindable(target: any, name?: PropertyKey): any {
+  //console.log(target);
   let observable = new Observable(target, name);
 
   const descriptor = {
@@ -97,26 +73,57 @@ export function bindable(target: any, name?: PropertyKey):any {
 interface Subscriber {
   target: any;
   targetProperty: string;
+  propertyIsObject: boolean;
 
-  handleChange(newValue, oldValue);
+  handleChange(newValue, oldValue, history);
 }
 
 class PropertySubscriber implements Subscriber {
   target: any;
   targetProperty: string;
+  propertyIsObject: boolean = false;
 
   constructor(target: any, targetProperty: string) {
     this.target = target;
     this.targetProperty = targetProperty;
+    this.propertyIsObject = targetProperty.indexOf(".") > 0;
   }
 
-  handleChange(newValue: any, oldValue: any) {
-    if (this.targetProperty === "innerhtml") {
-      this.target["innerHTML"] = newValue;
+  handleChange(newValue: any, oldValue: any, history:Array<any>) {
+    if (!history) {
+      history = [];
+    } else if (history.indexOf(this) >= 0) {
       return;
     }
-    this.target[this.targetProperty] = newValue;
+    history.push(this);
+    if (this.targetProperty === "innerhtml") {
+      this.target["innerHTML"] = newValue; //innerHTML is case-sensitive property
+      return;
+    }
+    if (this.propertyIsObject) {
+      setObjectPropertyByPath(this.target, this.targetProperty, newValue);
+    } else {
+      if (this.target['$observables']) {
+        let observable = this.target['$observables'][this.targetProperty];
+        if (observable) {
+          observable.setValue(newValue, history);
+          return;
+        }
+      }
+      this.target[this.targetProperty] = newValue;
+    }
   }
+}
+
+function setObjectPropertyByPath(target: any, path: string, value: any) {
+  let pathParts = path.split(".");
+  let obj = target;
+  let i = 0;
+  while (i < pathParts.length - 1) {
+    obj = obj[pathParts[i]];
+    i++;
+  }
+  obj[pathParts[i]] = value;
 }
 
 export function inlineView(template: string) {
@@ -128,50 +135,73 @@ export function inlineView(template: string) {
 export function registerElement(className: any) {
   customElements.define(kebabCase(className.name), class extends HTMLElement {
 
-        viewModel: any;
+        $viewModel: any;
 
         constructor() {
           super();
-          this.viewModel = new className();
-          this.viewModel["$element"] = this;
+          this.$viewModel = new className();
+          this.$viewModel["$element"] = this;
           //bind initial values
           for (let attr of this.attributes) {
-            this.viewModel[attr.name] = attr.value; //TODO check if property exists
+            if (attr.name.indexOf(".") > -1) {
+              continue;
+            }
+            this.$viewModel[attr.name] = attr.value; //TODO check if property exists
           }
+          console.log(this.$viewModel);
         }
 
         async connectedCallback() {
-          this.attachShadow({mode: 'open'}).innerHTML = interpolate.call(this.viewModel, String(this.viewModel.$template));
+          this.attachShadow({mode: 'open'}).innerHTML = interpolate.call(this.$viewModel, String(this.$viewModel.$template));
           //TODO should be recursive
           for (let child of this.shadowRoot.children) {
             for (let attr of child.attributes) {
               //from view to viewmodel
               if (attr.name.endsWith(".fromview") || attr.name.endsWith(".twoway")) {
-                child.addEventListener("change", (event) => {
-                  let value = event.target[attr.name.substring(0, attr.name.endsWith(".fromview") ? attr.name.indexOf(".fromview") : attr.name.indexOf(".twoway"))];
-                  let oldValue = this.viewModel[attr.value];
-                  this.viewModel[attr.value] = value;
-                  let changedFunction = this.viewModel[`${String(attr.value)}Changed`];
-                  if (this.viewModel[`${String(attr.value)}Changed`] instanceof Function) {
-                    changedFunction.call(this.viewModel, value, oldValue);
-                  }
-                });
+                if (child instanceof HTMLInputElement) {
+                  //TODO more options: event keyup or even dirty checking every .25s
+                  //TODO change event is good for value changes only!
+                  child.addEventListener("change", (event) => {
+                    let value = event.target[attr.name.substring(0, attr.name.endsWith(".fromview") ? attr.name.indexOf(".fromview") : attr.name.indexOf(".twoway"))];
+                    this.$viewModel[attr.value] = value;
+                  });
+                } else if (child['$viewModel']) {
+                  let propertyName = attr.name.substring(0, attr.name.endsWith(".fromview") ? attr.name.indexOf(".fromview") : attr.name.indexOf(".twoway"));
+                  createObserverAndSubscribe(child['$viewModel'], propertyName, this.$viewModel, attr.value);
+                }
               }
               //from viewmodel to view
               if (attr.name.endsWith(".toview") || attr.name.endsWith(".twoway")) {
-                let observer:Observable = this.viewModel.$observables && this.viewModel.$observables[attr.value];
-                if (!observer) { //add bindable if it's not defined
-                  observer = bindable(this.viewModel, attr.value);
-                }
-                //subscribe
                 let propertyName = attr.name.substring(0, attr.name.endsWith(".toview") ? attr.name.indexOf(".toview") : attr.name.indexOf(".twoway"));
-                observer.subscribe(new PropertySubscriber(child, propertyName));
+                if (child['$viewModel']) {
+                  createObserverAndSubscribe(this.$viewModel, attr.value, child['$viewModel'], propertyName);
+                } else {
+                  createObserverAndSubscribe(this.$viewModel, attr.value, child, propertyName);
+                }
               }
             }
           }
         }
       }
   );
+}
+
+function createObserverAndSubscribe(viewModel: any, modelProperty: string, target: any, targetProperty: string) {
+  let observer: Observable = viewModel.$observables && viewModel.$observables[modelProperty];
+  if (!observer) { //add bindable if it's not defined
+    let obj = viewModel;
+    if (modelProperty.indexOf(".") > 0) {
+      let pathParts = modelProperty.split(".");
+      let i = 0;
+      while (i < pathParts.length - 1) {
+        obj = obj[pathParts[i]];
+        i++;
+      }
+      modelProperty = pathParts[i];
+    }
+    observer = bindable(obj, modelProperty);
+  }
+  observer.subscribe(new PropertySubscriber(target, targetProperty));
 }
 
 //dirty trick

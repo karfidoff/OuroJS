@@ -8,8 +8,7 @@ export class XTextfield extends XField {
     super();
     setTimeout(() => {
       this.value = "test";
-      console.log('value set');
-    }, 2000);
+    }, 1000);
   }
 
 }
