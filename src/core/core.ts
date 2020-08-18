@@ -12,10 +12,10 @@ class Observable {
   constructor(obj, propertyKey) {
     this.obj = obj;
     this.propertyKey = propertyKey;
-    if (!this.obj.$observables) {
-      this.obj.$observables = {};
+    if (!this.obj.__observers__) {
+      this.obj.__observers__ = {};
     }
-    this.obj.$observables[propertyKey] = this;
+    this.obj.__observers__[propertyKey] = this;
     this.changedFunction = this.obj[`${propertyKey}Changed`];
   }
 
@@ -25,6 +25,7 @@ class Observable {
   }
 
   setValue(newValue: any, history: Array<any> = null): void {
+    console.log(`setvalue to ${newValue} hist: ${history && history.indexOf(this)}`);
     if (!history) {
       history = [];
     } else if (history.indexOf(this) >= 0) {
@@ -34,6 +35,8 @@ class Observable {
     //console.log(`observable set ${this.propertyKey} to ${newValue}`);
     this.oldValue = this.currentValue;
     this.currentValue = newValue;
+    console.log(`setvalue ${this.currentValue} [${this.oldValue}]`)
+    console.log(this.obj);
     //call subscribers
     if (this.subscribers) {
       for (let s of this.subscribers) {
@@ -56,7 +59,8 @@ class Observable {
 
 //TODO @bindable as decorator gives target not as component class
 export function bindable(target: any, name?: PropertyKey): any {
-  //console.log(target);
+  console.log('bindable ' + String(name));
+  console.log(target);
   let observable = new Observable(target, name);
 
   const descriptor = {
@@ -97,9 +101,17 @@ class PropertySubscriber implements Subscriber {
     if (this.propertyIsObject) {
       setObjectPropertyByPath(this.target, this.targetProperty, newValue);
     } else {
-      if (this.target['$observables']) {
-        let observable = this.target['$observables'][this.targetProperty];
+      if (this.target['__observers__']) {
+        let observable = this.target['__observers__'][this.targetProperty];
+        console.log(`handleChange ${newValue} [${oldValue}] ${history.indexOf(this.target)}`)
+        console.log(this.target);
         if (observable) {
+          if (!history) {
+            history = [];
+          } else if (history.indexOf(observable) >= 0) {
+            return;
+          }
+          history.push(observable);
           observable.setValue(newValue, history);
           return;
         }
@@ -181,18 +193,18 @@ export function registerElement(className: any) {
 }
 
 function createObserverAndSubscribe(viewModel: any, modelProperty: string, target: any, targetProperty: string) {
-  let observer: Observable = viewModel.$observables && viewModel.$observables[modelProperty];
-  if (!observer) { //add bindable if it's not defined
-    let obj = viewModel;
-    if (modelProperty.indexOf(".") > 0) {
-      let pathParts = modelProperty.split(".");
-      let i = 0;
-      while (i < pathParts.length - 1) {
-        obj = obj[pathParts[i]];
-        i++;
-      }
-      modelProperty = pathParts[i];
+  let obj = viewModel;
+  if (modelProperty.indexOf(".") > 0) {
+    let pathParts = modelProperty.split(".");
+    let i = 0;
+    while (i < pathParts.length - 1) {
+      obj = obj[pathParts[i]];
+      i++;
     }
+    modelProperty = pathParts[i];
+  }
+  let observer: Observable = obj.__observers__ && obj.__observers__[modelProperty];
+  if (!observer) { //add bindable if it's not defined
     observer = bindable(obj, modelProperty);
   }
   observer.subscribe(new PropertySubscriber(target, targetProperty));
