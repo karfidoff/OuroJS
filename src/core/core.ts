@@ -1,6 +1,8 @@
 import "reflect-metadata";
 import {kebabCase} from "./kebab-case";
 
+
+//TODO different types of Observers //TODO rename to Observer
 class Observable {
   currentValue: any;
   oldValue: any;
@@ -25,18 +27,14 @@ class Observable {
   }
 
   setValue(newValue: any, history: Array<any> = null): void {
-    console.log(`setvalue to ${newValue} hist: ${history && history.indexOf(this)}`);
     if (!history) {
       history = [];
     } else if (history.indexOf(this) >= 0) {
       return;
     }
     history.push(this);
-    //console.log(`observable set ${this.propertyKey} to ${newValue}`);
     this.oldValue = this.currentValue;
     this.currentValue = newValue;
-    console.log(`setvalue ${this.currentValue} [${this.oldValue}]`)
-    console.log(this.obj);
     //call subscribers
     if (this.subscribers) {
       for (let s of this.subscribers) {
@@ -98,38 +96,32 @@ class PropertySubscriber implements Subscriber {
       this.target["innerHTML"] = newValue; //innerHTML is case-sensitive property
       return;
     }
+    let obj:any = this.target;
+    let property:string = this.targetProperty;
     if (this.propertyIsObject) {
-      setObjectPropertyByPath(this.target, this.targetProperty, newValue);
-    } else {
-      if (this.target['__observers__']) {
-        let observable = this.target['__observers__'][this.targetProperty];
-        console.log(`handleChange ${newValue} [${oldValue}] ${history.indexOf(this.target)}`)
-        console.log(this.target);
-        if (observable) {
-          if (!history) {
-            history = [];
-          } else if (history.indexOf(observable) >= 0) {
-            return;
-          }
-          history.push(observable);
-          observable.setValue(newValue, history);
+      let i = 0;
+      let pathParts = property.split(".");
+      while (i < pathParts.length - 1) {
+        obj = obj[pathParts[i]];
+        i++;
+      }
+      property = pathParts[i];
+    }
+    if (obj['__observers__']) {
+      let observable = obj['__observers__'][property];
+      if (observable) {
+        if (!history) {
+          history = [];
+        } else if (history.indexOf(obj) >= 0) {
           return;
         }
+        history.push(obj);
+        observable.setValue(newValue, history);
+        return;
       }
-      this.target[this.targetProperty] = newValue;
     }
+    obj[property] = newValue;
   }
-}
-
-function setObjectPropertyByPath(target: any, path: string, value: any) {
-  let pathParts = path.split(".");
-  let obj = target;
-  let i = 0;
-  while (i < pathParts.length - 1) {
-    obj = obj[pathParts[i]];
-    i++;
-  }
-  obj[pathParts[i]] = value;
 }
 
 export function inlineView(template: string) {
