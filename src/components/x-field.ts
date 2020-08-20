@@ -1,5 +1,3 @@
-import {bindable} from "../core/core";
-
 export class XField {
 
   label:string;
@@ -11,7 +9,6 @@ export class XField {
   }
 
   valueChanged(newValue, oldValue) {
-    console.log(this);
     console.log(this.name + " changed to " + newValue);
   }
 
