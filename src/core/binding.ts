@@ -50,9 +50,8 @@ export class PropertySubscriber implements Subscriber {
     }
     let obj: any = this.target;
     let property: string = this.targetProperty;
-    if (this.target instanceof Repeat) { //TODO should be more universal way
-      (this.target as Repeat).renderItems();
-      return;
+    if (obj instanceof Repeat) { //TODO should be more universal way
+      (obj as Repeat).renderItems();
     }
 
     if (this.propertyIsObject) {

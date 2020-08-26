@@ -8,7 +8,7 @@ import {ArrayObserver} from "./core/array-observer";
 Hello&nbsp;<span innerHTML.toView="model.firstname"></span> <span innerHTML.toView="model.lastname"></span>
 <br>
 <div repeat.for="item of model.items">
-  <x-textfield label="name" value.toView="item.name"></x-textfield>
+  <x-textfield label="name" value.twoWay="item.name"></x-textfield>
 </div>
 <input type="button" click.delegate="addItem" value="add">
 `)
@@ -23,6 +23,8 @@ export class MyApp {
   firstname;
   lastname;
   model: any = {
+    firstname: "FIRST",
+    lastname: "LAST",
     items: [
       {name: "name1"},
       {name: "name2"}
@@ -31,11 +33,10 @@ export class MyApp {
 
   constructor() {
     setTimeout(() => {
-      this.model.firstname = "FIRST";
-      this.model.lastname = "LAST";
+      this.model.firstname = "FIRST changed";
+      this.model.lastname = "LAST changed";
       this.model.items.push({name: "name3"});
     }, 2000);
-    new ArrayObserver(this.model, "items");
   }
 
   addItem() {

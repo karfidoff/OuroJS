@@ -41,6 +41,15 @@ export function processDOM(root, viewModel) {
   for (let child of root.children) {
     for (let attr of child.attributes) {
       //from view to viewmodel
+      //from viewmodel to view
+      if (attr.name.endsWith(".toview") || attr.name.endsWith(".twoway")) {
+        let propertyName = attr.name.substring(0, attr.name.endsWith(".toview") ? attr.name.indexOf(".toview") : attr.name.indexOf(".twoway"));
+        if (child['$viewModel']) {
+          createObserverAndSubscribe(viewModel, attr.value, child['$viewModel'], propertyName);
+        } else {
+          createObserverAndSubscribe(viewModel, attr.value, child, propertyName);
+        }
+      }
       if (attr.name.endsWith(".fromview") || attr.name.endsWith(".twoway")) {
         if (child instanceof HTMLInputElement) {
           //TODO more options: event keyup or even dirty checking every .25s
@@ -52,15 +61,6 @@ export function processDOM(root, viewModel) {
         } else if (child['$viewModel']) {
           let propertyName = attr.name.substring(0, attr.name.endsWith(".fromview") ? attr.name.indexOf(".fromview") : attr.name.indexOf(".twoway"));
           createObserverAndSubscribe(child['$viewModel'], propertyName, viewModel, attr.value);
-        }
-      }
-      //from viewmodel to view
-      if (attr.name.endsWith(".toview") || attr.name.endsWith(".twoway")) {
-        let propertyName = attr.name.substring(0, attr.name.endsWith(".toview") ? attr.name.indexOf(".toview") : attr.name.indexOf(".twoway"));
-        if (child['$viewModel']) {
-          createObserverAndSubscribe(viewModel, attr.value, child['$viewModel'], propertyName);
-        } else {
-          createObserverAndSubscribe(viewModel, attr.value, child, propertyName);
         }
       }
       if (attr.name.endsWith(".delegate")) {
