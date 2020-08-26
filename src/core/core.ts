@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import {kebabCase} from "./kebab-case";
-import {bindable, Observer, PropertySubscriber, Repeat} from "./binding";
+import {bindable, PropertySubscriber, Repeat} from "./binding";
+import {PropertyObserver} from "./property-observer";
 
 
 export function inlineView(template: string) {
@@ -62,6 +63,13 @@ export function processDOM(root, viewModel) {
           createObserverAndSubscribe(viewModel, attr.value, child, propertyName);
         }
       }
+      if (attr.name.endsWith(".delegate")) {
+        let propertyName = attr.name.substring(0, attr.name.indexOf(".delegate"))
+        if (viewModel[attr.value] instanceof Function) {
+          child.addEventListener(propertyName, viewModel[attr.value].bind(viewModel));
+          console.log(propertyName);
+        }
+      }
       if (attr.name == "repeat.for") {
         let anchor = document.createComment("repeat.end");
         child.parentNode.replaceChild(anchor, child);
@@ -88,7 +96,7 @@ function createRepeatObserverAndSubscribe(viewModel: any, modelProperty: string,
     }
     modelProperty = pathParts[i];
   }
-  let observer: Observer = obj.$observers && obj.$observers[modelProperty];
+  let observer: PropertyObserver = obj.$observers && obj.$observers[modelProperty];
   if (!observer) { //add bindable if it's not defined
     observer = bindable(obj, modelProperty);
   }
@@ -100,8 +108,6 @@ function createRepeatObserverAndSubscribe(viewModel: any, modelProperty: string,
 
 //TODO it should be viewScope not the actual viewModel
 function createObserverAndSubscribe(viewModel: any, modelProperty: string, target: any, targetProperty: string) {
-  console.log(viewModel);
-  console.log(modelProperty);
   let obj = viewModel;
   if (modelProperty.indexOf(".") > 0) {
     let pathParts = modelProperty.split(".");
@@ -115,7 +121,7 @@ function createObserverAndSubscribe(viewModel: any, modelProperty: string, targe
   if (!obj) {
     return;
   }
-  let observer: Observer = obj.$observers && obj.$observers[modelProperty];
+  let observer: PropertyObserver = obj.$observers && obj.$observers[modelProperty];
   if (!observer) { //add bindable if it's not defined
     observer = bindable(obj, modelProperty);
   }

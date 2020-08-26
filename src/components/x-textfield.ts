@@ -6,9 +6,6 @@ export class XTextfield extends XField {
 
   constructor() {
     super();
-    setTimeout(() => {
-      this.value = "test";
-    }, 1000);
   }
 
 }

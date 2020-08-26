@@ -1,78 +1,30 @@
-//TODO different types of Observers
 import {processDOM} from "./core";
-
-export class Observer {
-  currentValue: any;
-  oldValue: any;
-  obj: any;
-  propertyKey: string;
-  changedFunction: Function;
-  subscribers: Array<Subscriber>;
-
-  constructor(obj, propertyKey) {
-    this.obj = obj;
-    this.propertyKey = propertyKey;
-    this.currentValue = this.obj[this.propertyKey];
-    if (!this.obj.$observers) {
-      this.obj.$observers = {};
-    }
-    this.obj.$observers[propertyKey] = this;
-    this.changedFunction = this.obj[`${propertyKey}Changed`];
-  }
-
-  getValue(): any {
-    //console.log(`observer ${this.propertyKey} get ${this.currentValue}`);
-    return this.currentValue;
-  }
-
-  setValue(newValue: any, history: Array<any> = null): void {
-    if (!history) {
-      history = [];
-    } else if (history.indexOf(this) >= 0) {
-      return;
-    }
-    history.push(this);
-    this.oldValue = this.currentValue;
-    this.currentValue = newValue;
-    //call subscribers
-    if (this.subscribers) {
-      for (let s of this.subscribers) {
-        s.handleChange(this.currentValue, this.oldValue, history);
-      }
-    }
-    //call <propertyKey>Changed hook
-    if (this.changedFunction) {
-      this.changedFunction.call(this.obj, this.currentValue, this.oldValue);
-    }
-  }
-
-  subscribe(subscriber: Subscriber) {
-    if (!this.subscribers) {
-      this.subscribers = new Array<Subscriber>();
-    }
-    subscriber.handleChange(this.currentValue, this.currentValue, []);
-    this.subscribers.push(subscriber);
-  }
-}
+import {ArrayObserver} from "./array-observer";
+import {PropertyObserver} from "./property-observer";
 
 //TODO @bindable as decorator gives target not as component class
 export function bindable(target: any, name?: PropertyKey): any {
-  console.log('bindable ' + String(name));
-  console.log(target);
-  let observable = new Observer(target, name);
+  //console.log('bindable ' + String(name));
+  //console.log(target);
+  let observer;
+  if (target[name] instanceof Array) {
+    observer = new ArrayObserver(target, name);
+  } else {
+    observer = new PropertyObserver(target, name);
+  }
 
   const descriptor = {
-    get: observable.getValue.bind(observable),
-    set: observable.setValue.bind(observable),
+    get: observer.getValue.bind(observer),
+    set: observer.setValue.bind(observer),
     enumerable: true,
     configurable: true,
   };
   Object.defineProperty(target, name, descriptor);
   //Reflect.defineMetadata(name, descriptor, target);  //TODO why do we need it?
-  return observable;
+  return observer;
 }
 
-interface Subscriber {
+export interface Subscriber {
   target: any;
   targetProperty: string;
   propertyIsObject: boolean;
@@ -91,13 +43,18 @@ export class PropertySubscriber implements Subscriber {
     this.propertyIsObject = targetProperty.indexOf(".") > 0;
   }
 
-  handleChange(newValue: any, oldValue: any, history:Array<any>) {
+  handleChange(newValue: any, oldValue: any, history: Array<any>) {
     if (this.targetProperty === "innerhtml") {
       this.target["innerHTML"] = newValue; //innerHTML is case-sensitive property
       return;
     }
-    let obj:any = this.target;
-    let property:string = this.targetProperty;
+    let obj: any = this.target;
+    let property: string = this.targetProperty;
+    if (this.target instanceof Repeat) { //TODO should be more universal way
+      (this.target as Repeat).renderItems();
+      return;
+    }
+
     if (this.propertyIsObject) {
       let i = 0;
       let pathParts = property.split(".");
@@ -125,7 +82,7 @@ export class PropertySubscriber implements Subscriber {
 }
 
 export class Repeat {
-  observer:Observer;
+  observer: PropertyObserver;
   location;
   template;
   parentScope;
@@ -147,13 +104,21 @@ export class Repeat {
       el.parentNode.removeChild(el);
     }
     this.elements = [];
+    console.log(this.observer.getValue());
     for (let item of this.observer.getValue()) {
       let element = this.template.cloneNode(true);
       this.elements.push(element);
       this.location.parentNode.insertBefore(element, this.location);
-      processDOM(element, Object.assign(this.parentScope, {item: item}));
+      processDOM(element, {item: item, "$parent": this.parentScope});
     }
-
   }
+
+
+  public itemsChanged(): void {
+  }
+
+  public handleCollectionChange(): void {
+  }
+
 
 }
