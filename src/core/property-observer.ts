@@ -13,7 +13,12 @@ export class PropertyObserver {
     this.propertyKey = propertyKey;
     this.currentValue = this.target[this.propertyKey];
     if (!this.target.$observers) {
-      this.target.$observers = {};
+      Reflect.defineProperty(this.target, '$observers', {
+        enumerable: false,
+        configurable: false,
+        writable: false,
+        value: {}
+      });
     }
     this.target.$observers[propertyKey] = this;
     this.changedFunction = this.target[`${propertyKey}Changed`];

@@ -15,16 +15,6 @@ export class ArrayObserver extends PropertyObserver {
       configurable: false,
       enumerable: false,
       writable: false,
-      /*
-            value: function (...args) {
-              let n;
-              for (let i = 0, ln = args.length; i < ln; i++) {
-                console.log(args[i]);
-
-              }
-              return n;
-            }
-      */
       value: function (...args) {
         let index;
         for (let i = 0, ln = args.length; i < ln; i++) {

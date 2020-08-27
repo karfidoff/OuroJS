@@ -8,7 +8,7 @@ import {ArrayObserver} from "./core/array-observer";
 Hello&nbsp;<span innerHTML.toView="model.firstname"></span> <span innerHTML.toView="model.lastname"></span>
 <br>
 <div repeat.for="item of model.items">
-  <x-textfield label="name" value.twoWay="item.name"></x-textfield>
+  <x-textfield name="name" label="name" value.twoWay="item.name"></x-textfield>
 </div>
 <input type="button" click.delegate="addItem" value="add">
 `)
