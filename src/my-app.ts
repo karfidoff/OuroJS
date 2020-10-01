@@ -1,5 +1,6 @@
 import {inlineView} from "./core/core";
 import {ArrayObserver} from "./core/array-observer";
+import {parse, tokenizer} from "acorn";
 
 @inlineView(`
 <x-textfield label="First name" name="firstname" value.twoWay="model.firstname"></x-textfield>
@@ -37,11 +38,15 @@ export class MyApp {
       this.model.lastname = "LAST changed";
       this.model.items.push({name: "name3"});
     }, 2000);
+
+    //parser test
+    //console.log(parse("a + test(b) + b.d; hell(some);"), {ecmaVersion: 2020});
+
   }
 
   addItem() {
     this.model.items.push({name: `name${this.model.items.length + 1}`})
-  }
+   }
 
 
 }
