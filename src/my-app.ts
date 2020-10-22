@@ -1,6 +1,7 @@
 import {inlineView} from "./core/core";
 import {ArrayObserver} from "./core/array-observer";
 import {parse, tokenizer} from "acorn";
+import {tokenize} from "./core/lexer";
 
 @inlineView(`
 <x-textfield label="First name" name="firstname" value.twoWay="model.firstname"></x-textfield>
@@ -42,6 +43,9 @@ export class MyApp {
     //parser test
     //console.log(parse("a + test(b) + b.d; hell(some);"), {ecmaVersion: 2020});
 
+
+    let tokens = tokenize("this.a+b.c[1].d");
+    console.log(tokens);
   }
 
   addItem() {
